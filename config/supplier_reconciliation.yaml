@@ -1,0 +1,137 @@
+suppliers:
+  biotus:
+    supplier_code: 38
+    supplier_aliases: ["biotus", "Biotus", "BIOTUS", "Biotus.ua"]
+    reconciliation_folder: "supplier_reconciliation/biotus"
+    file_pattern_type: "MMYYYY"
+    payment_doc_prefixes:
+      - "Приходный кассовый ордер"
+    sale_doc_prefixes:
+      - "Реализация товаров и услуг"
+    return_doc_prefixes:
+      - "Возврат товаров от покупателя"
+    payment_match_date_tolerance_days: 1
+    payment_match_datetime_tolerance_hours: 24
+    order_fetch_lookback_days: 12
+    order_fetch_lookforward_days: 1
+    order_match_date_tolerance_days: 3
+    order_match_amount_tolerance: 1
+    allowed_sale_status_ids: [5, 12, 10, 4]
+  monsterlab:
+    supplier_code: 42
+    supplier_aliases: ["monsterlab", "MonsterLab", "MONSTERLAB"]
+    reconciliation_folder: "supplier_reconciliation/monsterlab"
+    file_pattern_type: "MMYYYY"
+    payment_doc_prefixes:
+      - "Платеж по продаже"
+    sale_doc_prefixes:
+      - "Продажа"
+    return_doc_prefixes: []
+    payment_match_date_tolerance_days: 1
+    payment_match_datetime_tolerance_hours: 24
+    order_fetch_lookback_days: 12
+    order_fetch_lookforward_days: 1
+    order_match_date_tolerance_days: 3
+    order_match_amount_tolerance: 1
+    allowed_sale_status_ids: [5, 12, 10, 4]
+  Sport-atlet:
+    supplier_code: 43
+    supplier_aliases: ["Sport-atlet", "SPORT-ATLET", "sport-atlet", "Sport Atlet", "Sportatlet"]
+    reconciliation_folder: "supplier_reconciliation/Sport-atlet"
+    file_pattern_type: "MMYYYY"
+    payment_doc_prefixes:
+      - "Приходный кассовый ордер"
+    sale_doc_prefixes:
+      - "Реализация товаров и услуг"
+    return_doc_prefixes:
+      - "Возврат товаров от покупателя"
+    payment_match_date_tolerance_days: 1
+    payment_match_datetime_tolerance_hours: 24
+    order_fetch_lookback_days: 12
+    order_fetch_lookforward_days: 1
+    order_match_date_tolerance_days: 3
+    order_match_amount_tolerance: 1
+    order_match_strategy: "amount_and_date_only"
+    allowed_sale_status_ids: [5, 12, 10, 4]
+    balance_sign_mode: "negative_deposit"
+    sale_amount_column: "Приход"
+    return_amount_column: "Приход"
+    payment_amount_column: "Расход"
+    return_amount_abs: true
+  dsn:
+    supplier_code: 39
+    supplier_aliases: ["dsn", "DSN", "Dsn"]
+    reconciliation_folder: "supplier_reconciliation/dsn"
+    file_pattern_type: "MMYYYY"
+    payment_doc_prefixes:
+      - "Входящий платёж"
+    sale_doc_prefixes:
+      - "Отгрузка"
+    return_doc_prefixes:
+      - "Возврат покупателя"
+    opening_balance_prefixes:
+      - "Сальдо на"
+    closing_balance_prefixes:
+      - "Сальдо на"
+    payment_match_date_tolerance_days: 1
+    payment_match_datetime_tolerance_hours: 24
+    order_fetch_lookback_days: 12
+    order_fetch_lookforward_days: 1
+    order_match_date_tolerance_days: 3
+    order_match_amount_tolerance: 1
+    order_match_strategy: "document_exact_then_normalized"
+    allowed_sale_status_ids: [5, 12, 10, 4]
+    balance_sign_mode: "negative_deposit"
+    sale_amount_column: "Дебет"
+    return_amount_column: "Кредит"
+    payment_amount_column: "Кредит"
+    strip_leading_zeros_for_fallback: true
+  proteinplus:
+    supplier_code: 40
+    supplier_aliases: ["ProteinPlus", "proteinplus", "PROTEINPLUS"]
+    reconciliation_folder: "supplier_reconciliation/ProteinPlus"
+    file_pattern_type: "MMYYYY"
+    deposit_file_patterns:
+      - "MMYYYY_2"
+    orders_file_patterns:
+      - "MMYYYY_orders"
+    usd_to_uah_rate: 41.25
+    order_fetch_lookback_days: 12
+    order_fetch_lookforward_days: 1
+    allowed_sale_status_ids: [5, 12, 10, 4]
+    deposit_opening_label: "Начальный остаток"
+    deposit_return_labels:
+      - "Оплата возврата заказа"
+    deposit_withdrawal_labels:
+      - "Вывод денежных средств на карту клиента"
+    order_match_field: "tracking_number"
+    order_amount_field: "paymentAmount"
+  Dobavki.ua:
+    supplier_code: 41
+    supplier_aliases: ["Dobavki.ua", "dobavki.ua", "DOBAVKI.UA", "Dobavki ua", "Dobavki.ua"]
+    reconciliation_folder: "supplier_reconciliation/dobavki_ua"
+    file_pattern_type: "MMYYYY"
+    order_fetch_lookback_days: 12
+    order_fetch_lookforward_days: 1
+    allowed_sale_status_ids: [5]
+    order_match_field: "tracking_number"
+    order_amount_field: "expensesAmount"
+
+status_mapping:
+  1: "Новый"
+  9: "Недозвон 1"
+  16: "Недозвон 2"
+  4: "Обработано"
+  19: "Ожидание отмены"
+  18: "Ожидание предоплаты"
+  10: "Ожидает НП"
+  11: "В дороге НП"
+  12: "Прибыл НП"
+  14: "Отказ НП"
+  15: "Изменен адрес НП"
+  13: "Получено без наложки"
+  5: "Продажа"
+  6: "Отказ"
+  7: "Возврат"
+  17: "Свой отказ"
+  8: "Удален"

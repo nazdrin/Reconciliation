@@ -1,0 +1,24 @@
+default_period:
+  month: "2026-03"
+
+reports:
+  output_dir: "reports"
+  filename_template: "payment_report_{period_label}.xlsx"
+
+incoming_customer_rules:
+  include_if_counterparty_contains:
+    - "НоваПей"
+  include_if_comment_contains:
+    - "платежам, прийнятим від населення"
+  exclude_from_customer_receipts_if_counterparty_contains:
+    - "Петренко"
+  exclude_from_customer_receipts_if_comment_contains:
+    - "повернення"
+    - "повернення коштів"
+    - "refund"
+    - "refunds"
+    - "chargeback"
+    - "чарджбек"
+    - "внутрішн"
+    - "власний рахунок"
+  exclude_from_customer_receipts_if_exact_counterparty: []

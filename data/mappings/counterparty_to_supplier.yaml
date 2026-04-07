@@ -1,0 +1,12 @@
+suppliers:
+  DSN:
+    aliases:
+      - "Вильчаган"
+      - "ТОВ Вильчаган"
+  BIOTUS:
+    aliases:
+      - "Биотус"
+      - "BIOTUS"
+  ZOSIMOV:
+    aliases:
+      - "Зосимов"

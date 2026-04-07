@@ -1,0 +1,9 @@
+exclude_if_counterparty_contains:
+  - "Петренко"
+exclude_if_comment_contains:
+  - "Петренко"
+exclude_if_exact_counterparty: []
+include_if_counterparty_contains:
+  - "НоваПей"
+include_if_comment_contains:
+  - "платежам, прийнятим від населення"

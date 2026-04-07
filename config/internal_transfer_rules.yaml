@@ -1,0 +1,56 @@
+require_pair_match: true
+pairing_window_minutes: 5
+allow_direct_self_markers_without_pair: true
+
+own_entities:
+  names:
+    - "ФОП Петренко Ірина Анатоліївна"
+    - "Петренко Ірина Анатоліївна"
+    - "Петренко"
+    - "Petrenko Iryna"
+  tax_ids:
+    - "3254110820"
+
+own_accounts:
+  - account_number: "UA793220010000026000370005752"
+    label: "Mono main"
+  - account_number: "UA663220010000026202324004240"
+    label: "Card 9227"
+    card_mask: "444111******9227"
+  - account_number: "UA913220010000026208323546134"
+    label: "Card 9661"
+    card_mask: "444111******9661"
+  - account_number: "UA839358710000067321000080261"
+    label: "FOP main"
+
+pair_rules:
+  allowed_account_pairs:
+    - from_account: "UA839358710000067321000080261"
+      to_account: "UA793220010000026000370005752"
+    - from_account: "UA793220010000026000370005752"
+      to_account: "UA839358710000067321000080261"
+    - from_account: "UA839358710000067321000080261"
+      to_account: "UA663220010000026202324004240"
+    - from_account: "UA663220010000026202324004240"
+      to_account: "UA839358710000067321000080261"
+    - from_account: "UA839358710000067321000080261"
+      to_account: "UA913220010000026208323546134"
+    - from_account: "UA913220010000026208323546134"
+      to_account: "UA839358710000067321000080261"
+    - from_account: "UA793220010000026000370005752"
+      to_account: "UA663220010000026202324004240"
+    - from_account: "UA663220010000026202324004240"
+      to_account: "UA793220010000026000370005752"
+    - from_account: "UA793220010000026000370005752"
+      to_account: "UA913220010000026208323546134"
+    - from_account: "UA913220010000026208323546134"
+      to_account: "UA793220010000026000370005752"
+
+text_markers:
+  self_transfer_phrases:
+    - "власний рахунок"
+    - "перерахування коштів на інший власний рахунок"
+    - "від: фоп петренко"
+  direct_self_markers:
+    - "petrenko iryna"
+    - "фоп петренко ірина анатоліївна"

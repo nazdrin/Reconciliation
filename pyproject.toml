@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "payment-analysis"
+version = "0.1.0"
+description = "SalesDrive payment analysis pipeline"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+  "openpyxl>=3.1.0",
+  "pandas>=2.2.0",
+  "pypdf>=6.0.0",
+  "python-dotenv>=1.0.0",
+  "PyYAML>=6.0.0",
+  "requests>=2.31.0",
+  "xlrd>=2.0.1",
+]
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
