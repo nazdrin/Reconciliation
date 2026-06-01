@@ -130,9 +130,12 @@ class SupplierReconciliationService:
             return_matches, return_issues = reconcile_returns(
                 supplier_name=supplier_settings.supplier_name,
                 period_key=period_key,
+                settings=supplier_settings,
                 orders=orders,
                 supplier_records=records,
             )
+            order_matches = self._filter_order_matches_for_period(order_matches, period_key)
+            return_issues = self._filter_match_rows_for_period(return_issues, period_key)
             sale_records_count = len([record for record in records if record.record_type == "sale"])
             if orders and sale_records_count and not order_matches.matched:
                 issues.append(
@@ -525,13 +528,25 @@ class SupplierReconciliationService:
         warnings_count: int,
         issues_count: int,
     ) -> SupplierReconciliationSummary:
-        period_orders = [order for order in orders if (order.order_time or "")[:7] == period_key]
-        period_return_orders = [order for order in period_orders if order.status_id == 7]
+        reconciled_order_rows = self._unique_salesdrive_match_rows(
+            [
+                *[row for row in order_matches.matched if row.match_status in {"matched", "mismatch_amount"}],
+                *order_matches.only_salesdrive,
+                *[row for row in order_matches.issues if row.salesdrive_ref],
+            ]
+        )
+        linked_return_order_ids = {row.salesdrive_order_id for row in return_matches if row.salesdrive_order_id}
+        period_return_orders = [
+            order
+            for order in orders
+            if order.status_id == 7
+            and ((order.updated_at or order.order_time or "")[:7] == period_key or (order.order_id or "") in linked_return_order_ids)
+        ]
         sales_records = [record for record in records if record.record_type == "sale"]
         return_records = [record for record in records if record.record_type == "return"]
         payment_records = [record for record in records if record.record_type == "payment"]
         sales_amount = sum((record.debit_amount or Decimal("0")) for record in sales_records)
-        orders_amount = sum((order.expenses_amount or Decimal("0")) for order in period_orders)
+        orders_amount = sum((row.salesdrive_amount or Decimal("0")) for row in reconciled_order_rows)
         return_amount = sum((record.credit_amount or Decimal("0")) for record in return_records)
         return_orders_amount = sum((order.expenses_amount or Decimal("0")) for order in period_return_orders)
         return SupplierReconciliationSummary(
@@ -549,7 +564,7 @@ class SupplierReconciliationService:
             only_supplier_payments=len(payment_matches.only_supplier),
             ambiguous_payments=len(payment_matches.ambiguous),
             sales_in_reconciliation=len(sales_records),
-            orders_in_salesdrive=len(period_orders),
+            orders_in_salesdrive=len(reconciled_order_rows),
             sales_amount_in_reconciliation=sales_amount,
             orders_amount_in_salesdrive=orders_amount,
             orders_amount_delta=orders_amount - sales_amount,
@@ -572,6 +587,33 @@ class SupplierReconciliationService:
             if record.record_type == record_type:
                 return record.amount
         return None
+
+    def _filter_order_matches_for_period(self, order_matches: OrderMatchArtifacts, period_key: str) -> OrderMatchArtifacts:
+        return OrderMatchArtifacts(
+            matched=self._filter_match_rows_for_period(order_matches.matched, period_key),
+            only_salesdrive=self._filter_match_rows_for_period(order_matches.only_salesdrive, period_key),
+            only_supplier=self._filter_match_rows_for_period(order_matches.only_supplier, period_key),
+            warnings=self._filter_match_rows_for_period(order_matches.warnings, period_key),
+            issues=self._filter_match_rows_for_period(order_matches.issues, period_key),
+        )
+
+    def _filter_match_rows_for_period(self, rows: list[ReconciliationMatchResult], period_key: str) -> list[ReconciliationMatchResult]:
+        return [
+            row
+            for row in rows
+            if (row.supplier_date or "")[:7] == period_key or (row.salesdrive_date or "")[:7] == period_key
+        ]
+
+    def _unique_salesdrive_match_rows(self, rows: list[ReconciliationMatchResult]) -> list[ReconciliationMatchResult]:
+        seen: set[str] = set()
+        unique_rows: list[ReconciliationMatchResult] = []
+        for row in rows:
+            key = row.salesdrive_order_id or row.salesdrive_ref
+            if not key or key in seen:
+                continue
+            seen.add(key)
+            unique_rows.append(row)
+        return unique_rows
 
     @staticmethod
     def resolve_period(period_key: str) -> tuple[str, str]:

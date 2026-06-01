@@ -451,6 +451,7 @@ def reconcile_orders(
 def reconcile_returns(
     supplier_name: str,
     period_key: str,
+    settings: SupplierReconciliationSettings,
     orders: list[SalesDriveOrderRecord],
     supplier_records: list[SupplierReconciliationRecord],
 ) -> tuple[list[ReconciliationMatchResult], list[ReconciliationMatchResult]]:
@@ -467,6 +468,7 @@ def reconcile_returns(
     }
     results: list[ReconciliationMatchResult] = []
     issues: list[ReconciliationMatchResult] = []
+    used_return_order_ids: set[str] = set()
 
     for record in returns:
         if not record.document_number:
@@ -511,6 +513,13 @@ def reconcile_returns(
         if order is None:
             order = orders_by_number_fallback.get(normalized_key)
         if order is None:
+            order = _find_return_order_by_amount_and_date(
+                record=record,
+                orders=orders,
+                used_order_ids=used_return_order_ids,
+                settings=settings,
+            )
+        if order is None:
             issues.append(
                 ReconciliationMatchResult(
                     supplier_name=supplier_name,
@@ -524,16 +533,27 @@ def reconcile_returns(
                     supplier_date=record.accounting_date,
                     salesdrive_amount=None,
                     supplier_amount=record.credit_amount,
-                    notes="Возврат есть в акте сверки, но заказ SalesDrive по номеру не найден. В этом слое не используется отдельная сущность возврата из API.",
+                    notes="Возврат есть в акте сверки, но заказ SalesDrive не найден ни по номеру, ни по сумме и ближайшей дате среди заказов в статусе Возврат.",
                 )
             )
             continue
+        if order.order_id:
+            used_return_order_ids.add(order.order_id)
+        amount_delta = abs((order.expenses_amount or Decimal("0")) - (record.credit_amount or Decimal("0")))
+        date_delta = _date_distance_days(order.updated_at or order.order_time, record.accounting_date)
+        status = "matched" if amount_delta == 0 else "mismatch_amount"
+        notes = "Возврат связан с заказом SalesDrive по номеру документа. Отдельная сущность возврата SalesDrive здесь не использовалась."
+        if normalized_key != normalize_supplier_document_key(order.number_sup, strip_leading_zeros=True):
+            notes = (
+                "Возврат связан с заказом SalesDrive в статусе Возврат по сумме и ближайшей дате обновления. "
+                f"Расхождение по дате: {date_delta} дн., по сумме: {amount_delta}."
+            )
         results.append(
             ReconciliationMatchResult(
                 supplier_name=supplier_name,
                 period_key=period_key,
                 reconciliation_type="returns",
-                match_status="matched",
+                match_status=status,
                 salesdrive_ref=order.order_id,
                 supplier_ref=str(record.row_number),
                 match_key=normalized_key,
@@ -544,10 +564,39 @@ def reconcile_returns(
                 salesdrive_status_id=order.status_id,
                 salesdrive_status_name=order.status_name,
                 salesdrive_order_id=order.order_id,
-                notes="Возврат связан с заказом SalesDrive по номеру документа. Отдельная сущность возврата SalesDrive здесь не использовалась.",
+                notes=notes,
             )
         )
     return results, issues
+
+
+def _find_return_order_by_amount_and_date(
+    record: SupplierReconciliationRecord,
+    orders: list[SalesDriveOrderRecord],
+    used_order_ids: set[str],
+    settings: SupplierReconciliationSettings,
+) -> SalesDriveOrderRecord | None:
+    if record.credit_amount is None or record.accounting_date is None:
+        return None
+    amount_tolerance = Decimal(str(settings.order_match_amount_tolerance))
+    date_tolerance_days = max(settings.order_fetch_lookback_days, settings.order_match_date_tolerance_days)
+    candidates: list[tuple[int, Decimal, int, SalesDriveOrderRecord]] = []
+    for order in orders:
+        if order.status_id != 7 or order.expenses_amount is None:
+            continue
+        if order.order_id and order.order_id in used_order_ids:
+            continue
+        amount_delta = abs(order.expenses_amount - record.credit_amount)
+        if amount_delta > amount_tolerance:
+            continue
+        date_delta = _date_distance_days(order.updated_at or order.order_time, record.accounting_date)
+        if date_delta > date_tolerance_days:
+            continue
+        candidates.append((date_delta, amount_delta, int(order.order_id or 0), order))
+    if not candidates:
+        return None
+    candidates.sort(key=lambda item: (item[0], item[1], item[2]))
+    return candidates[0][3]
 
 
 def _reconcile_orders_by_amount_and_date_only(

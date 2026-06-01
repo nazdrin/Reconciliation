@@ -56,6 +56,16 @@ python -m scripts.run_supplier_reconciliation \
   --output reports/biotus_reconciliation_2026_02.xlsx
 ```
 
+Готовые команды за апрель 2026:
+
+```bash
+.venv/bin/python -m scripts.run_payment_analysis --type all --month 2026-04 --output reports/payment_report_2026_04.xlsx
+```
+
+```bash
+for supplier in biotus dsn monsterlab Sport-atlet proteinplus Dobavki.ua; do out=$(printf '%s' "$supplier" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/_/g'); .venv/bin/python -m scripts.run_supplier_reconciliation --supplier "$supplier" --period 2026-04 --output "reports/${out}_reconciliation_2026_04.xlsx"; done
+```
+
 Примеры по месяцам:
 
 ```bash

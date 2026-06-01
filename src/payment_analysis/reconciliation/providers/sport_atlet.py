@@ -23,7 +23,7 @@ class SportAtletReconciliationParseError(RuntimeError):
 class SportAtletReconciliationProvider(SupplierReconciliationProvider):
     DOCUMENT_RE = re.compile(
         r"(?P<prefix>Реализация товаров и услуг|Возврат товаров от покупателя|Приходный кассовый ордер)\s+"
-        r"(?P<number>SA\d+)\s+от\s+(?P<date>\d{2}\.\d{2}\.\d{4})(?:\s+(?P<time>\d{2}:\d{2}:\d{2}))?",
+        r"(?P<number>SA\d+)\s+(?:от|від)\s+(?P<date>\d{2}\.\d{2}\.\d{4})(?:\s+(?P<time>\d{2}:\d{2}:\d{2}))?",
         re.IGNORECASE,
     )
 
@@ -31,23 +31,38 @@ class SportAtletReconciliationProvider(SupplierReconciliationProvider):
         self._settings = settings
 
     def parse_file(self, file_path: Path, period_key: str) -> list[SupplierReconciliationRecord]:
+        engine = "openpyxl" if file_path.suffix.lower() == ".xlsx" else "xlrd"
+        sheet_name = "TDSheet"
         try:
-            frame = pd.read_excel(file_path, sheet_name="TDSheet", header=None, engine="xlrd")
+            frame = pd.read_excel(file_path, sheet_name=sheet_name, header=None, engine=engine)
+        except ValueError as exc:
+            if "Worksheet named 'TDSheet' not found" not in str(exc):
+                raise SportAtletReconciliationParseError(f"Failed to read Sport-atlet reconciliation file {file_path}: {exc}") from exc
+            sheet_name = 0
+            try:
+                frame = pd.read_excel(file_path, sheet_name=sheet_name, header=None, engine=engine)
+            except Exception as fallback_exc:  # noqa: BLE001
+                raise SportAtletReconciliationParseError(f"Failed to read Sport-atlet reconciliation file {file_path}: {fallback_exc}") from fallback_exc
         except Exception as exc:  # noqa: BLE001
             raise SportAtletReconciliationParseError(f"Failed to read Sport-atlet reconciliation file {file_path}: {exc}") from exc
 
         header_row = self._find_header_row(frame)
+        document_col = 0 if self._is_new_layout(frame, header_row) else 1
+        opening_col = document_col + 1
+        income_col = document_col + 2
+        expense_col = document_col + 3
+        closing_col = document_col + 4
         records: list[SupplierReconciliationRecord] = []
         opening_record: SupplierReconciliationRecord | None = None
         closing_record: SupplierReconciliationRecord | None = None
 
         for row_index in range(header_row + 1, len(frame)):
             row = frame.iloc[row_index]
-            document_raw = self._string_or_none(row.iloc[1] if len(row) > 1 else None)
-            opening_raw = self._to_decimal(row.iloc[2] if len(row) > 2 else None)
-            income_raw = self._to_decimal(row.iloc[3] if len(row) > 3 else None)
-            expense_raw = self._to_decimal(row.iloc[4] if len(row) > 4 else None)
-            closing_raw = self._to_decimal(row.iloc[5] if len(row) > 5 else None)
+            document_raw = self._string_or_none(row.iloc[document_col] if len(row) > document_col else None)
+            opening_raw = self._to_decimal(row.iloc[opening_col] if len(row) > opening_col else None)
+            income_raw = self._to_decimal(row.iloc[income_col] if len(row) > income_col else None)
+            expense_raw = self._to_decimal(row.iloc[expense_col] if len(row) > expense_col else None)
+            closing_raw = self._to_decimal(row.iloc[closing_col] if len(row) > closing_col else None)
 
             if not document_raw and all(value is None for value in (opening_raw, income_raw, expense_raw, closing_raw)):
                 continue
@@ -59,6 +74,7 @@ class SportAtletReconciliationProvider(SupplierReconciliationProvider):
             if self._is_balance_owner_row(normalized_document):
                 opening_record = self._build_balance_record(
                     file_path=file_path,
+                    source_sheet=str(sheet_name),
                     period_key=period_key,
                     row_number=row_index + 1,
                     record_type="opening_balance",
@@ -67,6 +83,7 @@ class SportAtletReconciliationProvider(SupplierReconciliationProvider):
                 )
                 closing_record = self._build_balance_record(
                     file_path=file_path,
+                    source_sheet=str(sheet_name),
                     period_key=period_key,
                     row_number=row_index + 1,
                     record_type="closing_balance",
@@ -86,7 +103,7 @@ class SportAtletReconciliationProvider(SupplierReconciliationProvider):
                         supplier_code=self._settings.supplier_code,
                         period_key=period_key,
                         source_file=str(file_path),
-                        source_sheet="TDSheet",
+                        source_sheet=str(sheet_name),
                         row_number=row_index + 1,
                         accounting_date=None,
                         document_raw=normalized_document,
@@ -97,10 +114,10 @@ class SportAtletReconciliationProvider(SupplierReconciliationProvider):
                         credit_amount=None,
                         amount=None,
                         raw_payload={
-                            "opening_raw": self._string_or_none(row.iloc[2] if len(row) > 2 else None),
-                            "income_raw": self._string_or_none(row.iloc[3] if len(row) > 3 else None),
-                            "expense_raw": self._string_or_none(row.iloc[4] if len(row) > 4 else None),
-                            "closing_raw": self._string_or_none(row.iloc[5] if len(row) > 5 else None),
+                            "opening_raw": self._string_or_none(row.iloc[opening_col] if len(row) > opening_col else None),
+                            "income_raw": self._string_or_none(row.iloc[income_col] if len(row) > income_col else None),
+                            "expense_raw": self._string_or_none(row.iloc[expense_col] if len(row) > expense_col else None),
+                            "closing_raw": self._string_or_none(row.iloc[closing_col] if len(row) > closing_col else None),
                         },
                     )
                 )
@@ -128,7 +145,7 @@ class SportAtletReconciliationProvider(SupplierReconciliationProvider):
                     supplier_code=self._settings.supplier_code,
                     period_key=period_key,
                     source_file=str(file_path),
-                    source_sheet="TDSheet",
+                    source_sheet=str(sheet_name),
                     row_number=row_index + 1,
                     accounting_date=accounting_date,
                     document_raw=normalized_document,
@@ -139,10 +156,10 @@ class SportAtletReconciliationProvider(SupplierReconciliationProvider):
                     credit_amount=credit_amount,
                     amount=amount,
                     raw_payload={
-                        "opening_raw": self._string_or_none(row.iloc[2] if len(row) > 2 else None),
-                        "income_raw": self._string_or_none(row.iloc[3] if len(row) > 3 else None),
-                        "expense_raw": self._string_or_none(row.iloc[4] if len(row) > 4 else None),
-                        "closing_raw": self._string_or_none(row.iloc[5] if len(row) > 5 else None),
+                        "opening_raw": self._string_or_none(row.iloc[opening_col] if len(row) > opening_col else None),
+                        "income_raw": self._string_or_none(row.iloc[income_col] if len(row) > income_col else None),
+                        "expense_raw": self._string_or_none(row.iloc[expense_col] if len(row) > expense_col else None),
+                        "closing_raw": self._string_or_none(row.iloc[closing_col] if len(row) > closing_col else None),
                     },
                 )
             )
@@ -160,7 +177,13 @@ class SportAtletReconciliationProvider(SupplierReconciliationProvider):
             values = [(self._string_or_none(frame.iat[row_idx, col]) or "").strip().casefold() for col in range(frame.shape[1])]
             if len(values) >= 6 and values[1] == "договор контрагента, валюта взаиморасчетов" and values[2] == "нач. остаток" and values[3] == "приход" and values[4] == "расход" and values[5] == "кон. остаток":
                 return row_idx
+            if len(values) >= 5 and values[0] == "договор контрагента, валюта взаиморасчетов" and values[1] == "нач. остаток" and values[2] == "приход" and values[3] == "расход" and values[4] == "кон. остаток":
+                return row_idx
         raise SportAtletReconciliationParseError("Sport-atlet reconciliation header row was not found.")
+
+    def _is_new_layout(self, frame: pd.DataFrame, header_row: int) -> bool:
+        first_cell = (self._string_or_none(frame.iat[header_row, 0]) or "").strip().casefold()
+        return first_cell == "договор контрагента, валюта взаиморасчетов"
 
     def _is_balance_owner_row(self, document_raw: str) -> bool:
         normalized = document_raw.casefold()
@@ -175,6 +198,7 @@ class SportAtletReconciliationProvider(SupplierReconciliationProvider):
     def _build_balance_record(
         self,
         file_path: Path,
+        source_sheet: str,
         period_key: str,
         row_number: int,
         record_type: str,
@@ -187,7 +211,7 @@ class SportAtletReconciliationProvider(SupplierReconciliationProvider):
             supplier_code=self._settings.supplier_code,
             period_key=period_key,
             source_file=str(file_path),
-            source_sheet="TDSheet",
+            source_sheet=source_sheet,
             row_number=row_number,
             accounting_date=None,
             document_raw=document_raw,

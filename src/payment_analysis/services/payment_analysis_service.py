@@ -199,7 +199,11 @@ class PaymentAnalysisService:
                 errors.append({"stage": "supplier_payment_reconciliation", "message": str(exc)})
                 continue
 
-            provider = self._build_reconciliation_provider(supplier_settings.supplier_name)
+            try:
+                provider = self._build_reconciliation_provider(supplier_settings.supplier_name)
+            except KeyError as exc:
+                errors.append({"stage": "supplier_payment_reconciliation", "message": str(exc)})
+                continue
             records = provider.parse_file(file_path, period_key)
             file_months = {(record.accounting_date or "")[:7] for record in records if record.accounting_date}
             if file_months and period_key not in file_months:
